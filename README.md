@@ -1,0 +1,1 @@
+# futures_trend_qc
