@@ -142,9 +142,8 @@ For each value, we run `evaluate_strategy()` and log the resulting performance m
 
 We compute a **composite objective** to evaluate each weight:
 
-\[
-\text{composite\_metric} = \text{Annual Return} + \text{Sharpe Ratio}
-\]
+![复合指标公式](https://latex.codecogs.com/svg.image?%5Cdpi%7B120%7D%5Ctext%7Bcomposite%5C_metric%7D%20%3D%20%5Ctext%7BAnnual%20Return%7D%20%2B%20%5Ctext%7BSharpe%20Ratio%7D)
+
 
 Then we select the weight with the **highest composite_metric**:
 
@@ -174,9 +173,9 @@ Top `N` futures contracts are selected each day using a **composite score** base
 - `trend_consistency` (robust R²-based)
 
 Each selected contract receives a **position size inversely proportional to its volatility**:
-\[
-\text{position\_size} = \frac{1}{\text{volatility}_{5d}}
-\]
+
+![头寸大小公式](https://latex.codecogs.com/svg.image?%5Cdpi%7B120%7D%5Ctext%7Bposition%5C_size%7D%20%3D%20%5Cfrac%7B1%7D%7B%5Ctext%7Bvolatility%7D_%7B5d%7D%7D)
+
 
 Implemented in: `generate_volatility_adjusted_long_signals()`
 
@@ -188,9 +187,9 @@ Each long position is monitored daily. Exit is triggered if:
 
 - Composite score falls below a `min_exit_threshold`, or
 - A **trailing stop** condition is met:
-  \[
-  \frac{\text{entry\_score} - \text{current\_score}}{\text{entry\_score}} > \text{stop\_threshold}
-  \]
+
+![止损条件公式](https://latex.codecogs.com/svg.image?%5Cdpi%7B120%7D%5Cfrac%7B%5Ctext%7Bentry%5C_score%7D%20-%20%5Ctext%7Bcurrent%5C_score%7D%7D%7B%5Ctext%7Bentry%5C_score%7D%7D%20%3E%20%5Ctext%7Bstop%5C_threshold%7D)
+
 
 Implemented in: `dynamic_exit_rule()` and `run_dynamic_volatility_strategy()`
 
