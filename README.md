@@ -9,6 +9,7 @@ This project is a futures trend evaluation and signal generation system.
   🔔 **实时监控**：获取当日主力合约数据，评估趋势质量，生成每日交易信号
 
 ---
+## Clone the Repository | 复制库链接至本地
 
 ## ⚙️ Setup | 安装依赖
 
