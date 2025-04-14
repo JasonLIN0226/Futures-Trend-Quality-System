@@ -219,9 +219,9 @@ class PortfolioManager:
     def __init__(self, initial_capital, contract_multiplier=1):
         self.initial_capital = initial_capital
         self.cash = initial_capital
-        self.positions = {}  # 格式 {'品种': (持仓数量, 成本总额)}
+        self.positions = {} 
         self.contract_multiplier = contract_multiplier
-        self.trade_log = []  # 记录交易日志
+        self.trade_log = [] 
 
     def buy(self, symbol, price, order_value, date):
         quantity = int(order_value / (price * self.contract_multiplier))
@@ -254,10 +254,6 @@ class PortfolioManager:
             return False
 
     def sell(self, symbol, price, quantity, date):
-        """
-        卖出操作：
-          检查是否有足够持仓，卖出后更新现金、持仓，并记录交易日志。
-        """
         if symbol not in self.positions:
             print(f"{date}: 无持仓 {symbol}，不能卖出。")
             return False
@@ -287,25 +283,15 @@ class PortfolioManager:
         return True
 
     def get_portfolio_value(self, current_prices):
-        """
-        计算总账户价值 = 现金 + 所有持仓市值（current_prices: {品种: 当前价格}）
-        """
         total_value = self.cash
         for symbol, (qty, _) in self.positions.items():
             price = current_prices.get(symbol, 0)
             total_value += qty * price * self.contract_multiplier
         return total_value
 
-# ============================
-# 5. 交易模拟（结合仓位管理）
-# ============================
 
 def simulate_trading(trades_df, df_scored, initial_capital=1_000_000, contract_multiplier=10, order_fraction=0.1):
-    """
-    根据交易记录和历史数据，使用 PortfolioManager 模块模拟实际买卖：
-      - order_fraction: 每笔交易投入的资金比例。
-      - 入场当天以开盘价买入，出场当天以开盘价卖出。
-    """
+
     portfolio = PortfolioManager(initial_capital, contract_multiplier=contract_multiplier)
     
     for idx, trade in trades_df.iterrows():
@@ -313,7 +299,6 @@ def simulate_trading(trades_df, df_scored, initial_capital=1_000_000, contract_m
         exit_date = trade["exit_date"]
         symbol = trade["symbol"]
 
-        # 获取入场当天的开盘价
         try:
             entry_price = df_scored[(df_scored['date'] == entry_date) & (df_scored['symbol'] == symbol)].iloc[0]["open"]
         except Exception as e:
@@ -325,7 +310,6 @@ def simulate_trading(trades_df, df_scored, initial_capital=1_000_000, contract_m
         if not success:
             continue
         
-        # 出场当天以开盘价卖出全部持仓
         try:
             exit_price = df_scored[(df_scored['date'] == exit_date) & (df_scored['symbol'] == symbol)].iloc[0]["open"]
         except Exception as e:
@@ -340,26 +324,18 @@ def simulate_trading(trades_df, df_scored, initial_capital=1_000_000, contract_m
     print("持仓情况：", portfolio.positions)
     return portfolio
 
-# ============================
-# 6. 账户净值曲线模拟（每日模拟）
-# ============================
 
 def simulate_daily_equity(trades_df: pd.DataFrame, df_scored: pd.DataFrame, initial_capital: float = 1_000_000) -> pd.DataFrame:
-    """
-    根据交易记录和历史数据模拟每日账户净值（Equity Curve）：
-      - 对于每个交易日（取营业日），判断哪些交易处于持仓状态，
-      - 以当日的开盘价计算每笔交易的日收益，整体取平均作为组合收益，
-      - 并更新账户净值。
-    """
+
     trades_df['entry_date'] = pd.to_datetime(trades_df['entry_date'])
     trades_df['exit_date'] = pd.to_datetime(trades_df['exit_date'])
     df_scored['date'] = pd.to_datetime(df_scored['date'])
     
     start_date = (trades_df['entry_date'].min() + pd.Timedelta(days=1)).normalize()
     end_date = trades_df['exit_date'].max().normalize()
-    date_range = pd.date_range(start=start_date, end=end_date, freq='B')  # 只取营业日
+    date_range = pd.date_range(start=start_date, end=end_date, freq='B')  
     
-    # 建立 multi-index，便于查找 (date, symbol) 对应的开盘价
+
     df_scored_indexed = df_scored.set_index(['date', 'symbol'])
     
     equity = initial_capital
@@ -372,7 +348,6 @@ def simulate_daily_equity(trades_df: pd.DataFrame, df_scored: pd.DataFrame, init
             symbol = trade['symbol']
             try:
                 open_today = df_scored_indexed.loc[(current_date, symbol)]['open']
-                # 找到前一个交易日价格
                 prev_date = current_date - pd.Timedelta(days=1)
                 while (prev_date, symbol) not in df_scored_indexed.index:
                     prev_date = prev_date - pd.Timedelta(days=1)
@@ -390,41 +365,32 @@ def simulate_daily_equity(trades_df: pd.DataFrame, df_scored: pd.DataFrame, init
         equity_curve.append({'date': current_date, 'equity': equity, 'daily_return': portfolio_daily_return})
     return pd.DataFrame(equity_curve)
 
-# ============================
-# 7. 主流程：最佳权重提取、策略信号生成、仓位管理与账户净值模拟
-# ============================
 
 def run_best_weight_strategy_with_portfolio_and_plot():
-    # 1. 数据加载、清洗与指标计算
+
     df = load_data('data/all_futures_20250413.csv')
     df = clean_data(df)
     df = compute_indicators(df)
     
-    # 2. 参数调优并提取最佳权重
     tuning_results = parameter_tuning(df, top_n=5)
     print("参数调优结果：")
     print(tuning_results)
     best_weight = get_best_weight(tuning_results)
     print(f"最佳趋势强度权重：{best_weight:.2f}")
     
-    # 3. 根据最佳权重计算综合得分
     df_scored = score_and_rank_custom(df, weight_ts=best_weight)
     
-    # 4. 生成交易记录（动态出场策略）
     trades_df = run_dynamic_volatility_strategy(df_scored, top_n=5, trailing_stop=0.2, min_exit_threshold=0.4)
     print("部分交易记录：")
     print(trades_df.head(10))
     
-    # 5. 利用仓位管理模块模拟实际交易（打印交易日志）
     portfolio = simulate_trading(trades_df, df_scored, initial_capital=1_000_000, contract_multiplier=10, order_fraction=0.1)
     trade_log_df = pd.DataFrame(portfolio.trade_log)
     print("交易日志：")
     print(trade_log_df.head(10))
     
-    # 6. 账户净值曲线模拟
     equity_df = simulate_daily_equity(trades_df, df_scored, initial_capital=1_000_000)
     
-    # 7. 计算业绩指标
     if not equity_df.empty:
         final_equity = equity_df['equity'].iloc[-1]
         total_return = final_equity / 1_000_000 - 1
@@ -432,15 +398,12 @@ def run_best_weight_strategy_with_portfolio_and_plot():
         annual_return = (1 + total_return) ** (252 / num_days) - 1
         daily_ret = equity_df['daily_return']
         sharpe_ratio = daily_ret.mean() / daily_ret.std() * np.sqrt(252) if daily_ret.std() != 0 else np.nan
-        
-        # 修改最大回撤计算：以百分比形式计算
         cummax = equity_df['equity'].cummax()
         drawdown_pct = equity_df['equity'] / cummax - 1
         max_drawdown = drawdown_pct.min()
     else:
         total_return = annual_return = sharpe_ratio = max_drawdown = np.nan
     
-    # 8. 绘制账户净值曲线并在图中标注业绩指标
     plt.figure(figsize=(12, 7))
     plt.plot(equity_df['date'], equity_df['equity'], marker='o', markersize=2, label="Equity Curve")
     plt.xlabel("Date")
@@ -448,7 +411,6 @@ def run_best_weight_strategy_with_portfolio_and_plot():
     plt.title("Portfolio Equity Curve (Initial Capital = $1,000,000)")
     plt.grid(True)
     
-    # 在图的空白区域添加业绩指标文本
     metric_text = (f"Total Return: {total_return:.2%}\n"
                    f"Annualized Return: {annual_return:.2%}\n"
                    f"Sharpe Ratio: {sharpe_ratio:.2f}\n"

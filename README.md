@@ -50,7 +50,7 @@ M0,0.81,0.76,0.79,4,6
 ### 🔹 Run Historical Backtest
 
 ```bash
-python realtime_monitor.py --mode backtest --data ./data
+python realtime_monitor.py --mode backtest --data data/all_futures_20250413.csv
 ```
 
 This will:
@@ -66,14 +66,6 @@ This will:
 - **Trend Strength**: Based on normalized momentum and slope (multi-scale)
 - **Trend Consistency**: Based on robust R² over rolling windows
 - **Composite Score**: Weighted average of strength and consistency (default weight = 0.61)
-
----
-
-## ✨ Future Improvements
-
-- Support signal-based position tracking
-- Push signals to Feishu / email
-- Integrate database or remote logging
 
 ---
 

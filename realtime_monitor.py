@@ -12,14 +12,11 @@ from datetime import datetime, timedelta
 import pandas as pd
 import akshare as ak
 
-# 引入策略核心函数与类
 from trend_quality_system import (
     load_data, clean_data, compute_indicators,
     score_and_rank_custom, generate_volatility_adjusted_long_signals,
-    PortfolioManager
+    PortfolioManager, run_best_weight_strategy_with_portfolio_and_plot
 )
-
-# 获取历史 Bar 数据
 def future_history_bar(symbol: str, length: int = 750) -> pd.DataFrame:
     start_dt = datetime.now() - timedelta(days=length * 2)
     start_str = start_dt.strftime("%Y%m%d")
@@ -41,7 +38,6 @@ def future_history_bar(symbol: str, length: int = 750) -> pd.DataFrame:
     df = df.sort_values("date").reset_index(drop=True)
     return df.iloc[-length:].reset_index(drop=True)
 
-# 期货品种列表
 futures_list = [
     {"symbol":"V0","exchange":"DCE","name":"PVC连续"},
     {"symbol":"P0","exchange":"DCE","name":"棕榈油连续"},
@@ -129,20 +125,7 @@ class TradingEngine:
         self.portfolio = None
 
     def backtest(self):
-        df = load_data(self.data_path)
-        df = clean_data(df)
-        df = compute_indicators(df)
-        best_weight = 0.61  # 示例
-        df = score_and_rank_custom(df, weight_ts=best_weight)
-        trades = generate_volatility_adjusted_long_signals(df, top_n=self.top_n)
-        self.portfolio = PortfolioManager(1_000_000, contract_multiplier=10)
-        for _, sig in trades.iterrows():
-            date = sig['date']
-            sym = sig['symbol']
-            price = df[(df['date']==date)&(df['symbol']==sym)].iloc[0]['open']
-            order_value = self.portfolio.initial_capital * self.order_fraction
-            self.portfolio.buy(sym, price, order_value, date)
-        print("Backtest completed. Final cash:", self.portfolio.cash)
+        run_best_weight_strategy_with_portfolio_and_plot()
 
     def live(self):
         all_dfs = []
@@ -158,7 +141,6 @@ class TradingEngine:
             return
         today_df = pd.concat(all_dfs, ignore_index=True)
         today_df["price"] = today_df["settle_price"]
-        # 加载并合并历史数据
         all_hist_path = self.data_path or './data'
         all_files = [f for f in os.listdir(all_hist_path) if f.endswith('.csv')]
         hist_dfs = [pd.read_csv(os.path.join(all_hist_path, f), parse_dates=['date']) for f in all_files]
